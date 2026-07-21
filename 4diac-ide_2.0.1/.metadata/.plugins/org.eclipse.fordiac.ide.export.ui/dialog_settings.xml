@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item key="SelectFBTypesWizardPage.STORE_CURRENT_FILTER_SELECTION_ID" value="FORTE 1.x NG"/>
+	<item key="SelectFBTypesWizardPage.STORE_OVERWRITE_CHECKBOX" value="true"/>
+	<list key="SelectFBTypesWizardPage.STORE_DIRECTORY_NAMES_ID">
+		<item value="C:\esp\projects\forte_blinky_example"/>
+	</list>
+	<section name="4DIAC_EXPORT_SECTION">
+	</section>
+</section>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<System Name="teste" Comment="">
+	<VersionInfo Version="1.0" Author="José Hélio" Date="2026-04-16">
+	</VersionInfo>
+	<Application Name="testeApp" Comment="">
+		<SubAppNetwork>
+			<FB Name="E_PERMIT" Type="E_PERMIT" Comment="" x="3217.391304347826" y="695.6521739130435">
+			</FB>
+			<FB Name="E_CYCLE" Type="E_CYCLE" Comment="" x="347.82608695652175" y="695.6521739130435">
+				<Parameter Name="DT" Value="T#1s"/>
+			</FB>
+			<FB Name="E_SWITCH" Type="E_SWITCH" Comment="" x="1304.3478260869565" y="695.6521739130435">
+			</FB>
+			<FB Name="E_SR" Type="E_SR" Comment="" x="2347.8260869565215" y="695.6521739130435">
+			</FB>
+			<FB Name="E_CTU" Type="E_CTU" Comment="" x="4173.913043478261" y="695.6521739130435">
+			</FB>
+			<EventConnections>
+				<Connection Source="E_CYCLE.EO" Destination="E_SWITCH.EI" Comment=""/>
+				<Connection Source="E_SWITCH.EO0" Destination="E_SR.S" Comment=""/>
+				<Connection Source="E_SWITCH.EO1" Destination="E_SR.R" Comment=""/>
+				<Connection Source="E_SR.EO" Destination="E_PERMIT.EI" Comment=""/>
+				<Connection Source="E_PERMIT.EO" Destination="E_CTU.CU" Comment=""/>
+			</EventConnections>
+			<DataConnections>
+				<Connection Source="E_SR.Q" Destination="E_SWITCH.G" Comment="" dx1="52.17391304347826" dx2="52.17391304347826" dy="173.91304347826087"/>
+				<Connection Source="E_SR.Q" Destination="E_PERMIT.PERMIT" Comment="" dx1="321.73913043478257"/>
+			</DataConnections>
+		</SubAppNetwork>
+	</Application>
+	<Device Name="testee" Type="FORTE_PC" Comment="" x="1304.3478260869565" y="1652.1739130434783">
+		<Parameter Name="MGR_ID" Value="&quot;192.168.0.125:61499&quot;"/>
+		<Attribute Name="Profile" Type="STRING" Value="HOLOBLOC" Comment="device profile"/>
+		<Attribute Name="Color" Type="STRING" Value="255,190,111" Comment="color"/>
+		<Resource Name="Blinky_RES" Type="EMB_RES" Comment="" x="0.0" y="0.0">
+			<FBNetwork>
+				<FB Name="E_CYCLE" Type="E_CYCLE" Comment="" x="1130.4347826086955" y="86.95652173913044">
+					<Parameter Name="DT" Value="T#1s"/>
+				</FB>
+				<FB Name="E_SWITCH" Type="E_SWITCH" Comment="" x="2086.9565217391305" y="86.95652173913044">
+				</FB>
+				<FB Name="E_SR" Type="E_SR" Comment="" x="2956.5217391304345" y="86.95652173913044">
+				</FB>
+				<FB Name="PUBLISH_1" Type="PUBLISH_1" Comment="" x="4434.782608695652" y="-260.8695652173913">
+					<Parameter Name="QI" Value="1"/>
+					<Parameter Name="ID" Value="&quot;239.0.0.1:61000&quot;"/>
+				</FB>
+				<EventConnections>
+					<Connection Source="E_CYCLE.EO" Destination="E_SWITCH.EI" Comment=""/>
+					<Connection Source="E_SWITCH.EO0" Destination="E_SR.S" Comment=""/>
+					<Connection Source="E_SWITCH.EO1" Destination="E_SR.R" Comment=""/>
+					<Connection Source="START.COLD" Destination="PUBLISH_1.INIT" Comment="" dx1="1847.8260869565217"/>
+					<Connection Source="START.WARM" Destination="PUBLISH_1.INIT" Comment="" dx1="1856.5217391304348"/>
+					<Connection Source="E_SR.EO" Destination="PUBLISH_1.REQ" Comment="" dx1="321.73913043478257"/>
+					<Connection Source="PUBLISH_1.INITO" Destination="E_CYCLE.START" Comment="" dx1="52.17391304347826" dx2="300.0" dy="1126.086956521739"/>
+				</EventConnections>
+				<DataConnections>
+					<Connection Source="E_SR.Q" Destination="E_SWITCH.G" Comment="" dx1="52.17391304347826" dx2="52.17391304347826" dy="104.34782608695652"/>
+				</DataConnections>
+			</FBNetwork>
+		</Resource>
+	</Device>
+	<Device Name="Counter" Type="FORTE_PC" Comment="" x="3217.391304347826" y="1913.0434782608695">
+		<Parameter Name="MGR_ID" Value="&quot;localhost:61500&quot;"/>
+		<Attribute Name="Profile" Type="STRING" Value="HOLOBLOC" Comment="device profile"/>
+		<Attribute Name="Color" Type="STRING" Value="208,121,227" Comment="color"/>
+		<Resource Name="Counter_RES" Type="EMB_RES" Comment="" x="0.0" y="0.0">
+			<FBNetwork>
+				<FB Name="E_CTU" Type="E_CTU" Comment="" x="3826.086956521739" y="86.95652173913044">
+				</FB>
+				<FB Name="E_PERMIT" Type="E_PERMIT" Comment="" x="2869.565217391304" y="86.95652173913044">
+				</FB>
+				<FB Name="SUBSCRIBE_1" Type="SUBSCRIBE_1" Comment="" x="1652.1739130434783" y="-260.8695652173913">
+					<Parameter Name="QI" Value="1"/>
+					<Parameter Name="ID" Value="&quot;239.0.0.1:61000&quot;"/>
+				</FB>
+				<EventConnections>
+					<Connection Source="E_PERMIT.EO" Destination="E_CTU.CU" Comment=""/>
+					<Connection Source="SUBSCRIBE_1.IND" Destination="E_PERMIT.EI" Comment="" dx1="243.47826086956522"/>
+					<Connection Source="START.COLD" Destination="SUBSCRIBE_1.INIT" Comment="" dx1="456.52173913043475"/>
+					<Connection Source="START.WARM" Destination="SUBSCRIBE_1.INIT" Comment="" dx1="152.17391304347825"/>
+				</EventConnections>
+				<DataConnections>
+					<Connection Source="SUBSCRIBE_1.RD_1" Destination="E_PERMIT.PERMIT" Comment="" dx1="243.47826086956522"/>
+				</DataConnections>
+			</FBNetwork>
+		</Resource>
+	</Device>
+	<Mapping From="testeApp.E_CYCLE" To="testee.Blinky_RES.E_CYCLE"/>
+	<Mapping From="testeApp.E_SWITCH" To="testee.Blinky_RES.E_SWITCH"/>
+	<Mapping From="testeApp.E_SR" To="testee.Blinky_RES.E_SR"/>
+	<Mapping From="testeApp.E_CTU" To="Counter.Counter_RES.E_CTU"/>
+	<Mapping From="testeApp.E_PERMIT" To="Counter.Counter_RES.E_PERMIT"/>
+	<Segment Name="Ethernet" Type="Ethernet" Comment="" x="2608.695652173913" y="1217.391304347826" dx1="1304.3478260869565">
+		<Attribute Name="Color" Type="STRING" Value="125,206,168" Comment="color"/>
+	</Segment>
+	<Link SegmentName="Ethernet" CommResource="testee" Comment="">
+	</Link>
+	<Link SegmentName="Ethernet" CommResource="Counter" Comment="">
+	</Link>
+</System>
