@@ -14,12 +14,6 @@
 
 #include <sockhand.h>
 
- // Força a inclusão dos headers do ESP32/LwIP
-#include <lwip/sockets.h>
-#include <lwip/netdb.h>
-#include <lwip/err.h>
-#include <sys/socket.h>
- 
 class CBSDSocketInterface{
   public:
     typedef FORTE_SOCKET_TYPE TSocketDescriptor;

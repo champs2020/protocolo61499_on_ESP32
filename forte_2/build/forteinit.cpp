@@ -49,6 +49,7 @@
 #include <C:/esp/projects/forte_2/src/core/datatypes/forte_wstring.h>
 
 
+#include <C:/esp/projects/forte_2/src/modules/ESP_LOGGER/ESP32_LOGGER.h>
 #include <C:/esp/projects/forte_2/src/stdfblib/events/ARTimeOut.h>
 #include <C:/esp/projects/forte_2/src/stdfblib/events/ATimeOut.h>
 #include <C:/esp/projects/forte_2/src/stdfblib/events/E_CTD.h>
@@ -143,6 +144,7 @@ void initForte()
   E_SWITCH::dummyInit();
   FORTE_ARTimeOut::dummyInit();
   FORTE_ATimeOut::dummyInit();
+  FORTE_ESP32_LOGGER::dummyInit();
   FORTE_E_CTD::dummyInit();
   FORTE_E_CTUD::dummyInit();
   FORTE_E_RTimeOut::dummyInit();

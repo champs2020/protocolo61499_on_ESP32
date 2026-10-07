@@ -14,6 +14,9 @@
 #define EXAMPLE_ESP_WIFI_SSID      "LIEC201"
 #define EXAMPLE_ESP_WIFI_PASS      "Liec#201"
 
+// #define EXAMPLE_ESP_WIFI_SSID      "LIEC-WIFI"
+//#define EXAMPLE_ESP_WIFI_PASS      "0987ABCDEF"
+
 static const char *TAG = "wifi_station";
 
 /* Event group para avisar quando conectamos ou falhamos */

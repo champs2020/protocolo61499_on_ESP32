@@ -1,38 +1,37 @@
 /*******************************************************************************
  * Copyright (c) 2010 - 2015 ACIN, Profactor GmbH, AIT, fortiss GmbH
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *   Alois Zoitl, Ingo Hegny, Gerhard Ebenhofer, Thomas Strasser
+ *     - initial API and implementation and/or initial documentation
  *******************************************************************************/
-#include <sockhand.h>      
+#include <sockhand.h>      //needs to be first pulls in the platform specific includes
 #include "bsdsocketinterf.h"
 #include "devlog.h"
 #include <string.h>
-#include <errno.h>
 
- // --- INICIO DA CORREÇÃO PARA ESP32/LWIP ---
-#include <lwip/sockets.h>
-#include <lwip/netdb.h>
+#include "lwip/sockets.h"
+#include "lwip/netdb.h"
+#include "lwip/inet.h"
 
-#undef socket
-#undef bind
-#undef listen
-#undef accept
-#undef recv
-#undef send
-#undef setsockopt
-#undef connect
-#undef recvfrom
-#undef sendto
-
+#ifndef socket
 #define socket(a,b,c)         lwip_socket(a,b,c)
+#define setsockopt(a,b,c,d,e) lwip_setsockopt(a,b,c,d,e)
 #define bind(a,b,c)           lwip_bind(a,b,c)
 #define listen(a,b)           lwip_listen(a,b)
 #define accept(a,b,c)         lwip_accept(a,b,c)
-#define recv(a,b,c,d)         lwip_recv(a,b,c,d)
 #define send(a,b,c,d)         lwip_send(a,b,c,d)
-#define setsockopt(a,b,c,d,e) lwip_setsockopt(a,b,c,d,e)
-#define connect(a,b,c)        lwip_connect(a,b,c)
-#define recvfrom(a,b,c,d,e,f) lwip_recvfrom(a,b,c,d,e,f)
+#define recv(a,b,c,d)         lwip_recv(a,b,c,d)
 #define sendto(a,b,c,d,e,f)   lwip_sendto(a,b,c,d,e,f)
-// --- FIM DA CORREÇÃO ---
+#define recvfrom(a,b,c,d,e,f) lwip_recvfrom(a,b,c,d,e,f)
+#define closesocket(s)        lwip_close(s)
+#endif
+
 void CBSDSocketInterface::closeSocket(TSocketDescriptor pa_nSockD){
 #if defined(NET_OS)
   closesocket(pa_nSockD);

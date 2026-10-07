@@ -4,7 +4,6 @@
         "board/esp32-bridge.cfg"
     ],
     "idf.flashType": "UART",
-    "idf.port": "/dev/ttyUSB0",
-    "idf.currentSetup": "C:\\esp\\v5.5.4\\esp-idf",
-    "idf.portWin": "COM9"
+    "idf.port": "COM13",
+    "idf.currentSetup": "C:\\esp\\v5.5.4\\esp-idf"
 }

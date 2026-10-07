@@ -5,6 +5,8 @@
 # terms of the Eclipse Public License 2.0 which is available at
 # http://www.eclipse.org/legal/epl-2.0.
 #
+#C:\esp\projects\forte_2
+
 # SPDX-License-Identifier: EPL-2.0
 # 
 # Contributors:
@@ -14,16 +16,11 @@
 #    Martin Melik Merkumians - adds compiler feature check for nullptr
 # *******************************************************************************/
 
-CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
+CMAKE_MINIMUM_REQUIRED(VERSION 4.3)
 
 PROJECT(FORTE)
 
 set(FORTE_USE_STD_11 OFF CACHE BOOL "Enable c++11 for the project")
-set(FORTE_ARCHITECTURE "FreeRTOSLwIP" CACHE STRING "" FORCE)
-
-
-
-
 mark_as_advanced(FORTE_USE_STD_11)
 
 if (FORTE_USE_STD_11)

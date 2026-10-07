@@ -20,7 +20,7 @@
  *
  * FORTE will use this information to calculate time values.
  */
-const TForteUInt32 cg_nForteTicksPerSecond = 100;
+const TForteUInt32 cg_nForteTicksPerSecond = 1000;
 
 /*! \brief Defines the time base in units per second that will be used in the TIME data type
  *
