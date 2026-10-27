@@ -9,12 +9,12 @@
  ***     1.0: 2026-09-28/José Hélio -  -
  *************************************************************************/
 
-#include "ESP32_LOGGER.h"
 #include <esp_log.h>
 #include <driver/gpio.h>
 
 #define LED_GPIO GPIO_NUM_2 // Pino padrão do LED na placa ESP32
 
+#include "ESP32_LOGGER.h"
 #ifdef FORTE_ENABLE_GENERATED_SOURCE_CPP
 #include "ESP32_LOGGER_gen.cpp"
 #endif
