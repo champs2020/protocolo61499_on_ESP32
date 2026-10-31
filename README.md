@@ -1,10 +1,10 @@
-# 🚀 Eclipse 4diac FORTE for ESP32 (IEC 61499 Runtime & Custom SIFBs)
+# Eclipse 4diac FORTE for ESP32 (IEC 61499 Runtime & Custom SIFBs)
 
 Repository dedicated to integrating the **Eclipse 4diac FORTE (FORTE_LITE)** real-time execution engine with the **ESP32** microcontroller, implementing distributed control logic based on the **IEC 61499** standard.
 
 ---
 
-## 📌 Main Achievements and Features
+## Main Achievements and Features
 
 ### 1. FORTE Engine Update & Optimization for ESP32
 * **FORTE Engine Update:** Synchronization and optimization of the core FORTE source code for stable execution on 32-bit ESP-IDF-based architectures.
