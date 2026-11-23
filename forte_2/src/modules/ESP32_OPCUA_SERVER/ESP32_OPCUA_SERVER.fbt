@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE FBType SYSTEM "http://www.holobloc.com/xml/LibraryElement.dtd">
+<FBType Comment="Starts the ESP32 OPC UA server" Name="ESP32_OPCUA_SERVER_1">
+  <Identification Description="ESP32 OPC UA server control block" Standard="61499-2"/>
+  <VersionInfo Author="Jose Helio" Date="2026-11-23" Organization="Esp Forte OPC UA" Remarks="Server control service interface function block" Version="1.0"/>
+  <InterfaceList>
+    <EventInputs>
+      <Event Comment="Initialize the block" Name="INIT" Type="Event">
+        <With Var="QI"/>
+      </Event>
+      <Event Comment="Start the OPC UA server" Name="START" Type="Event">
+        <With Var="QI"/>
+      </Event>
+    </EventInputs>
+    <EventOutputs>
+      <Event Comment="Initialization confirmation" Name="INITO" Type="Event">
+        <With Var="QO"/>
+        <With Var="STATUS"/>
+      </Event>
+      <Event Comment="Start confirmation" Name="CNF" Type="Event">
+        <With Var="QO"/>
+        <With Var="STATUS"/>
+      </Event>
+    </EventOutputs>
+    <InputVars>
+      <VarDeclaration Comment="Enable the service" Name="QI" Type="BOOL"/>
+    </InputVars>
+    <OutputVars>
+      <VarDeclaration Comment="Operation result" Name="QO" Type="BOOL"/>
+      <VarDeclaration Comment="Server status" Name="STATUS" Type="WSTRING"/>
+    </OutputVars>
+  </InterfaceList>
+</FBType>

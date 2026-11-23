@@ -1,0 +1,260 @@
+Ran terminal command: git -C C:\esp\projects diff -- 'forte_2/src/com/opc_ua/opcua_local_handler.cpp' 'forte_2/src/com/opc_ua/opcua_helper.h' 'forte_2/src/com/opc_ua/opcua_helper.cpp' 'esp-4diac-forte/test_apps/TestApplication/components/forte_main/CMakeLists.txt' 'esp-4diac-forte/test_apps/TestApplication/CMakeLists.txt' 'esp-4diac-forte/test_apps/TestApplication/components/forte_main/forte_main.cpp'
+
+Read 
+Completed with input: {
+  "path": "C:\\esp\\projects\\esp-4diac-forte\\test_apps\\TestApplication\\components\\open62541lib\\CMakeLists.txt"
+}
+
+Ran terminal command: git -C C:\esp\projects status --short -- 'esp-4diac-forte/test_apps/TestApplication/components/open62541lib' 'esp-4diac-forte/test_apps/TestApplication/components/forte_main/libforte-static.a' 'forte_2/src/com/opc_ua' 'esp-4diac-forte/test_apps/TestApplication/CMakeLists.txt'
+
+Search for `UA_ARCHITECTURE_FREERTOSLWIP|UA_ENABLE_SUBSCRIPTIONS|freertos/task.h|UA_Guid ...`
+
+Ran terminal command: git -C C:\esp\projects diff -- 'forte_2/src/com/opc_ua/opcua_client_information.cpp' 'forte_2/src/com/opc_ua/opcua_client_information.h' 'esp-4diac-forte/test_apps/TestApplication/components/forte_main/CMakeLists.txt'
+
+Read , lines 1038 to 1155
+Completed with input: {
+  "path": "C:\\esp\\projects\\esp-4diac-forte\\test_apps\\TestApplication\\components\\open62541lib\\open62541.h",
+  "view_range": [
+    1038,
+    1155
+  ]
+}
+
+Read , lines 5538 to 5558
+Completed with input: {
+  "path": "C:\\esp\\projects\\esp-4diac-forte\\test_apps\\TestApplication\\components\\open62541lib\\open62541.c",
+  "view_range": [
+    5538,
+    5558
+  ]
+}
+
+Search for `UA_gethostname|UA_ServerConfig_setCustomHostname|UA_String_clear\(&paUaServer...`
+
+Search for `UA_ARCHITECTURE_FREERTOSLWIP|freertos/task.h|UA_Guid result =|int gethostname...`
+
+Search for `EXTRA_COMPONENT_DIRS|WHOLE_ARCHIVE|PRIV_REQUIRES|whole-archive`
+
+## Complete description of the fix
+
+The build initially appeared to fail because the active ESP-IDF Python environment lacked `click`. That was an **environment activation issue**, not the firmware’s code error. I used the installed ESP-IDF 5.5.4 Python environment and ran the build to expose the actual errors.
+
+### Root cause and fixes
+
+1. **Open62541 was selecting the wrong architecture.**  
+   The vendored Open62541 header had `UA_MULTITHREADING 0`, but its FreeRTOS/LwIP architecture wasn’t selected. It defaulted to POSIX, while parts of the amalgamated source expected FreeRTOS, resulting in missing lock macros and `timerMutex`/`serviceMutex` errors.
+
+   I configured the component to select FreeRTOS/LwIP, explicitly require ESP-IDF’s `freertos` and `lwip` components, and link Open62541 as a whole archive. The whole-archive setting is needed because FORTE is itself linked from a static archive. I also removed the separate Open62541 dependency from `forte_main` to avoid pulling the whole-archived library in twice.
+
+   The project now registers the Open62541 component through `TestApplication/CMakeLists.txt`. Its configuration is in `open62541lib/CMakeLists.txt`.
+
+2. **The FreeRTOS clock source used an obsolete include path.**  
+   ESP-IDF 5.5 provides the header as `freertos/task.h`, not `task.h`, so I updated the include in `open62541.c`.
+
+3. **A compiler warning stopped the build.**  
+   GCC reported that the result in Open62541’s secure GUID function might be uninitialized. I zero-initialized the local value before filling it with random bytes. This does not change the successful random-generation path.
+
+4. **Open62541 API and symbol compatibility needed updates in FORTE.**
+   - The local server now calls `UA_gethostname`, using the LwIP-compatible hostname function instead of POSIX `gethostname`.
+   - The hostname declaration in `open62541.h` now has C linkage. Without that, C++ FORTE code requested a mangled C++ symbol while Open62541 provided a C symbol.
+   - The server hostname configuration now copies into `customHostname` and reports a copy failure, instead of calling an unavailable API: `local handler`.
+   - Cleanup now uses `forteUaDelete`, which calls `UA_clear` and `UA_free`, at the affected call sites in `opcua_helper.cpp` and `opcua_local_handler.cpp`.
+   - Client code was updated for the Open62541 API used by this build: it checks session state with `UA_Client_getState`, uses `UA_Client_connectUsername`, and adopts the newer callback signature in `opcua_client_information.cpp` and `opcua_client_information.h`.
+
+   Subscriptions and subscription events remain enabled; disabling them was an earlier workaround attempt, not the final fix.
+
+5. **The app needed the rebuilt FORTE archive.**  
+   I rebuilt `forte-static`, copied it to the ESP app, and verified the source and app copies had identical SHA-256 hashes. The resulting archive is `libforte-static.a`.
+
+### Verification
+
+The full ESP-IDF build completed successfully and generated `TestApplication.elf` and `TestApplication.bin`. The image fits the app partition, with 52% free. This verifies compilation, linking, and image generation; I did not flash or test the firmware on the hardware.
+
+## Correction procedure: `ESP32_LOGGER` returns `UNSUPPORTED_TYPE`
+
+### Symptom
+
+The management request to create an FB with `Type="ESP32_LOGGER"` returned `UNSUPPORTED_TYPE`, even though the custom FB source files were present.
+
+### Root cause
+
+The implementation was not being compiled into FORTE and registered at startup. The module CMake file used `forte_add_directory_module()`, which treated it as the optional `EXTERNAL_ESP_LOGGER` module; that option was OFF. The request's type name was correct. The fix was to declare `ESP_LOGGER` as an enabled FORTE module and rebuild the static library consumed by the ESP-IDF application.
+
+### Steps performed
+
+1. **Enable the custom module.** In `forte_2/src/modules/ESP_LOGGER/CMakeLists.txt`, replace the directory-module setup with:
+
+   ```cmake
+   forte_add_module(ESP_LOGGER ON "ESP32 GPIO logger function block")
+   forte_add_all_sourcefiles()
+   ```
+
+   The FB implementation registers the type `ESP32_LOGGER` with `DEFINE_FIRMWARE_FB`. Keep the XML request's `Type` value exactly `ESP32_LOGGER`.
+
+2. **Reconfigure and rebuild FORTE.** Use the FORTE source and build directories already used for this application, explicitly enabling the option:
+
+   ```powershell
+   cmake -S C:\esp\projects\forte_2 -B C:\esp\projects\forte_2\build -DFORTE_MODULE_ESP_LOGGER=ON
+   cmake --build C:\esp\projects\forte_2\build --target forte-static -- -j4
+   ```
+
+   The rebuilt library is `C:\esp\projects\forte_2\build\src\libforte-static.a`.
+
+3. **Copy the rebuilt library into the ESP-IDF application.**
+
+   ```powershell
+   Copy-Item C:\esp\projects\forte_2\build\src\libforte-static.a C:\esp\projects\esp-4diac-forte\test_apps\TestApplication\components\forte_main\libforte-static.a -Force
+   Get-FileHash C:\esp\projects\forte_2\build\src\libforte-static.a -Algorithm SHA256
+   Get-FileHash C:\esp\projects\esp-4diac-forte\test_apps\TestApplication\components\forte_main\libforte-static.a -Algorithm SHA256
+   ```
+
+   Confirm that the two hashes match. Replacing the archive in the app is necessary; rebuilding FORTE alone does not update the library already consumed by ESP-IDF.
+
+4. **Build the ESP-IDF application.** From an ESP-IDF 5.5.4 environment, build `C:\esp\projects\esp-4diac-forte\test_apps\TestApplication`. If `idf.py` reports `No module named 'click'`, activate the installed ESP-IDF Python environment (`idf5.5_py3.13_env`) before building; that message indicates the wrong Python environment, not a FORTE module error.
+
+   ```powershell
+   idf.py -C C:\esp\projects\esp-4diac-forte\test_apps\TestApplication build
+   ```
+
+   The build produces `build\TestApplication.bin`. Flash that image to the target board and restart it before testing. For example, replace `COMx` with the board's serial port:
+
+   ```powershell
+   idf.py -C C:\esp\projects\esp-4diac-forte\test_apps\TestApplication -p COMx flash monitor
+   ```
+
+5. **Verify the management request on the running device.**
+
+   ```xml
+   <Request Action="CREATE" ID="7">
+     <FB Name="ESP32_LOGGER_BLINKY" Type="ESP32_LOGGER"/>
+   </Request>
+   ```
+
+   A successful correction means the request is no longer rejected with `UNSUPPORTED_TYPE`. If it still is, first confirm the board was flashed with this newly built image and restarted. Then check that the FORTE build has `FORTE_MODULE_ESP_LOGGER:BOOL=ON`, that generated `forteinit.cpp` includes the logger FB and calls `FORTE_ESP32_LOGGER::dummyInit()`, and that the copied archive is the rebuilt one.
+
+### Verification status
+
+The module option was ON, the generated FORTE initialization included the logger FB, and the ESP-IDF build completed with the rebuilt archive. This confirms compile-time inclusion and firmware linking. The firmware still needs to be flashed and the management CREATE request needs to be tested on hardware; do not treat the runtime response as verified until that test succeeds.
+
+## Runtime correction: OPC UA Namespace 0 `BadOutOfMemory`
+
+After adding the `PUBLISH_1` test FB, the device log showed that the OPC UA server began initialization but failed while creating Namespace 0 with `BadOutOfMemory`. The ESP32 build has no PSRAM, so the generated namespace used too much startup heap.
+
+In `components/open62541lib/open62541.h`, `UA_GENERATED_NAMESPACE_ZERO` was disabled so open62541 uses its minimal built-in Namespace 0 instead of loading the generated namespace. The minimal namespace still provides the standard `Objects` folder and `BaseDataVariableType` required by the simple `LED_State` variable test.
+
+The ESP-IDF build succeeded after this change and generated a new `build/TestApplication.bin`. The firmware must be flashed again; runtime success is not confirmed until the device no longer reports the Namespace 0 `BadOutOfMemory` error and a UA client can browse/read the test variable.
+
+## Runtime correction: OPC UA endpoint hostname lookup failure
+
+After reducing Namespace 0, the server passed namespace initialization but failed at `UA_Server_run_startup()` with `getaddrinfo lookup of espressif-forte_4840 failed`. The generated hostname was being used by the FreeRTOS/LwIP TCP layer as the bind address; it was not resolvable on the ESP32.
+
+For the `FreeRTOSLwIP` architecture, `opcua_local_handler.cpp` now obtains the active default netif's IPv4 address and sets that as the OPC UA custom hostname. This lets the TCP layer bind and advertise an address reachable by clients. Other FORTE architectures retain their previous hostname configuration.
+
+The FORTE static library was rebuilt and copied into the TestApplication component; the ESP-IDF build then succeeded and generated a new `build/TestApplication.bin`. Flash this image and verify the serial log reports the selected IPv4 address and a listening endpoint. Then connect a UA client to `opc.tcp://<ESP32-IP>:4840` and browse/read `Objects/LED_State`. Runtime success still requires this hardware test.
+
+## Runtime correction: OPC UA client handshake timeout
+
+The server now binds and listens on the ESP32 IPv4 address, but client discovery still timed out after TCP connections were accepted. open62541's default connection configuration uses 64 KiB send and receive buffers. For the ESP32's constrained heap and this scalar-variable test, the FreeRTOS/LwIP server configuration now sets both buffers to 8 KiB, the minimum accepted by open62541's SecureChannel setup. Other FORTE architectures continue to use the standard defaults.
+
+The FORTE library and ESP-IDF application were rebuilt successfully with the smaller buffers. Flash the resulting `build/TestApplication.bin`; verify endpoint discovery and browse/read of `Objects/LED_State` on hardware. The connection timeout is not considered resolved until the client test succeeds.
+
+## OPC UA client timeout: iteration polling check
+
+The server accepts TCP connections, but 4diac times out on `FindServers`, `GetEndpoints`, and related requests. The FORTE OPC UA loop calls `UA_Server_run_iterate(server, false)`, which polls the network non-blockingly and then waits on a semaphore. I checked the vendored open62541 source: its `UA_MAXTIMEOUT` is 50 ms, not 10 seconds, so the existing timer already limits how long the server can go between polls. The 10-second retry cadence in the client logs therefore does not prove that the server loop was sleeping for 10 seconds.
+
+As a diagnostic improvement, `opcua_local_handler.h` now caps that wait at 10 ms (the existing 1 ms minimum is unchanged). This reduces the maximum polling delay, but does not yet establish the cause of the OPC UA service timeout. The FORTE static library was rebuilt, copied into the TestApplication component, and the two archive SHA-256 hashes matched. The ESP-IDF build then succeeded and generated `build/TestApplication.bin` (60% of the app partition remains free).
+
+Flash this image and test `opc.tcp://<ESP32-IP>:4840` with None security and Anonymous authentication. If the timeout persists, collect the client error and the ESP32 serial log from one connection attempt; the server's TCP accept log alone is not enough to identify whether HEL/OPN requests are received and answered. Runtime behavior remains unverified until discovery succeeds and a UA client can browse/read `Objects/LED_State`.
+
+The latest device log still shows accepted TCP connections with no confirmation that the OPC UA HEL/OPN messages were received. Rather than enable global TRACE logging (which compiles unrelated debug format strings and triggers a `-Werror=format` failure), the diagnostic build keeps `UA_LOGLEVEL` at `300` and raises only the server's socket-activity, packet-received, HEL, and OPN messages to INFO. The ESP-IDF build succeeded and generated a new `build/TestApplication.bin`; flash it, capture the serial output for one DiscoveryWidget attempt, and check which of those messages appears for each accepted connection.
+
+The next runtime log showed repeated socket activity followed by `Closed by the server (no Hello Message)` for Connection 59. open62541 emits that close after its 120-second HEL timeout. Thus TCP accepts the connection, but the server does not receive/process an OPC UA HEL message; the failure is before FindServers/GetEndpoints, not node publishing or Namespace 0. UaExpert was also tried and timed out, so this is not isolated to the 4diac DiscoveryWidget. The latest diagnostic firmware logs whether each socket event is readable or exceptional, distinguishing missing TCP data from repeated socket-error readiness. The ESP-IDF build succeeded and generated `build/TestApplication.bin`; flash it and inspect the new `readable` and `exceptional` values.
+
+## Runtime correction: OPC UA HEL/ACK allocation failure
+
+The receive-path diagnostics first reported `BadOutOfMemory` while allocating an 8 KiB temporary receive buffer. Reads now use a 1 KiB temporary buffer; open62541 reassembles TCP fragments, while the SecureChannel's negotiated 8 KiB chunk limit remains unchanged. On the next test, the server received and parsed HEL, confirming that the smaller receive allocation let the handshake progress.
+
+The subsequent log showed `Process a HEL message` followed by `BadOutOfMemory`. In `processHEL`, the ACK path requested the full 8 KiB configured send buffer even though the TCP ACK is only 28 bytes. It now requests only the ACK message size. The next runtime log confirmed the ACK succeeded: the server received OPN and opened the secure channel. It then failed sending the OPN answer with `BadOutOfMemory`; `UA_SecureChannel_sendAsymmetricOPNMessage` also requested the full 8 KiB send buffer. ESP32 socket send allocations are now capped at 1 KiB, while the negotiated 8 KiB SecureChannel limit remains unchanged.
+
+The latest device log shows the server receiving HEL and OPN and opening the SecureChannel without an OPN-answer `BadOutOfMemory`. The peer closes the connection a few seconds later, so the discovery response still needs confirmation from the client. The run also reports `External event queue is full` followed by a `Tmr Svc` stack overflow. The ESP-IDF timer service stack is now configured to 4096 bytes; the build succeeded. Flash this newest image to test whether that prevents the panic. The event-queue backlog and whether the client completes discovery still require runtime diagnosis.
+
+
+## Branch status: 4diac OPC UA server control and ESP32 heap limitations
+
+This branch adds a 4diac SIFB named `ESP32_OPCUA_SERVER_1`. It has `INIT`, `START`, `QI`,
+`INITO`, `CNF`, `QO`, and `STATUS`. The `START` event calls `opcua_server_start()` through
+the real C-compatible `opcua_server.h` API. Server startup is no longer automatic in
+`main.c`; it is activated by the 4diac application.
+
+The FORTE and ESP-IDF static libraries were rebuilt and linked. The ESP32 firmware with
+the SIFB builds and has been flashed successfully. The server can receive HEL and OPN
+messages, open a SecureChannel, create an UaExpert session, create a subscription, and
+create and publish a monitored temperature item.
+
+### Heap and memory problem
+
+The ESP32 is a single-memory-domain system from the application's point of view: FORTE,
+Wi-Fi, the DHT22 task data, open62541, network buffers, sessions, subscriptions, monitoring
+messages, and 4diac management communication share the same internal RAM. It does not
+automatically reserve enough additional memory for simultaneous clients and monitoring.
+
+Observed in this project:
+
+* Startup could leave little heap for Namespace 0 and fail with `BadOutOfMemory`.
+* Reducing the open62541 send/receive buffers from 16 KiB to 8 KiB allowed HEL/OPN
+  processing to proceed.
+* Limiting the server to one SecureChannel, one Session, and one Subscription reduced
+  allocations.
+* Replacing the OPC UA task stack with a staged 6144-byte stack was tested as a memory
+  reduction, with a stack high-water diagnostic. Network buffers must not be reduced below
+  8 KiB because open62541 validates SecureChannel send/receive buffers.
+* UaExpert and the standalone OPC UA server worked together while 4diac Watch was stopped.
+* Adding 4diac Watch during active OPC UA sessions reduced the free heap and largest
+  contiguous block, closed the 4diac management connection, and could trigger heap,
+  message-processing, or task-watchdog failures.
+* Disconnecting UaExpert deleted its session, subscription, and monitored item and
+  recovered part of the heap.
+
+The heap problem is primarily fragmentation and concurrency, not just the temperature
+application. A low free heap sample is more useful with the largest contiguous block.
+For example, `free=5980 largest=3968` leaves less than 4 KiB for one contiguous allocation
+and is close to the practical limit for further 4diac or OPC UA requests.
+
+### Processor and scheduling limitations
+
+The ESP32 processor is not usually the primary limitation. The repeated failures occurred
+when several memory-using clients and tasks ran concurrently. The server loop pins work
+to CPU 1 and must regularly call `UA_Server_run_iterate()` and reset the task watchdog.
+The 4diac Watch and UaExpert test streams add TCP packet processing, allocation, and
+management traffic while Wi-Fi is active.
+
+Task watchdogs and socket closure are therefore downstream symptoms. Increasing the
+watchdog timeout alone would hide stalls without freeing heap. Processor throughput
+should be considered after memory pressure is stabilized.
+
+### Recommendations for ESP32 DevKit without external memory
+
+Use the server and monitoring modes in separate test phases:
+
+1. Flash and start FORTE.
+2. Use 4diac Watch first, with UaExpert disconnected.
+3. Add watches one block at a time and remove them after inspection.
+4. Stop 4diac Watch before starting or reconnecting UaExpert.
+5. Start UaExpert alone and use direct reads before subscriptions.
+6. Use at most one subscription and one monitored item.
+7. Keep only one OPC UA SecureChannel and Session enabled.
+8. Keep the 8 KiB network buffers. Do not lower them to 4 KiB.
+9. Restore the OPC UA task stack to 8192 bytes if 6144 gives low
+   stack-high-water or stack-overflow symptoms.
+10. Remove or avoid optional OPC UA features not used by this application:
+    alarms/conditions, event subscriptions, PubSub, encryption/TLS, and generated
+    Namespace 0 Full.
+11. Keep heap diagnostics while testing, including free heap, largest free block,
+    minimum heap, and OPC UA task stack high-water.
+12. For simultaneous 4diac Watch and UaExpert on a production-like build, use an ESP32
+    board/module with external PSRAM or move one of the servers to a more capable host.
+
+The 4diac IDE `Socket closed` error is a consequence of the ESP32 management connection
+ending or not completing its request. It should be interpreted together with the serial
+log: heap exhaustion, watchdog reset, stack overflow, socket disconnection, or board reset
+must be identified before changing the IDE diagram.
